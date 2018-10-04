@@ -1,7 +1,7 @@
 import getopt
 import sys
-from command import Command
-from config import Arguments
+from discordify.command import Command
+from discordify.config import Arguments
 
 EXIT_INVALID_ARGS = 0x01
 

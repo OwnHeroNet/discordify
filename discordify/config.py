@@ -6,7 +6,7 @@ from hashlib import md5
 # required to get the HOME folder
 from pathlib import Path
 from socket import gethostname
-from command import Command
+from discordify.command import Command
 
 TOOL_NAME = 'discordify'
 GLOBAL_CONFIG = '/etc/{}.conf'.format(TOOL_NAME)
@@ -97,7 +97,7 @@ class Arguments:
                 long_opt='color',
                 short_opt='c',
                 description='Defines the color of the embed.',
-                default=0x2176C7,
+                default="0x2176C7",
                 takes_arg=True,
                 required=True,
                 parse=lambda s: int(s, 0)),
@@ -160,7 +160,7 @@ class Arguments:
             elif option.long_opt in config.config:
                 pass
             elif option.default:
-                config.config[option.long_opt] = option.default
+                config.config[option.long_opt] = option.process(option.default)
             elif option.required:
                 missing_options.append(option.long_opt)
 
@@ -203,9 +203,7 @@ class Config:
             try:
                 with open(config, 'r') as f:
                     try:
-                        data = json.load(f)
-                        print(data)
-                        self.config.update(data)
+                        self.config.update(json.load(f))
                     except json.JSONDecodeError as err:
                         print("Invalid config at {}: {}".format(config, err))
                         exit(34)

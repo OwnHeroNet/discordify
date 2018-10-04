@@ -4,8 +4,9 @@ import threading
 import time
 from collections import deque
 from datetime import timedelta
+from os import getpgid
 
-from payload import Payload, TeamsPayload
+from discordify.payload import Payload
 
 
 class Command:
@@ -29,13 +30,18 @@ class Command:
 
     def run(self):
         self.__start_time = time.time()
-        self.__process = subprocess.Popen(self.__args, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-        self.__stdin_thread = threading.Thread(target=self.__process_stdin, name='STDIN')
-        self.__stdout_thread = threading.Thread(target=self.__process_stdout, name='STDOUT')
-        self.__stderr_thread = threading.Thread(target=self.__process_stderr, name='STDERR')
-        self.__stdin_thread.start()
-        self.__stdout_thread.start()
-        self.__stderr_thread.start()
+
+        if self.__args:
+            self.__process = subprocess.Popen(self.__args, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+            self.__stdin_thread = threading.Thread(target=self.__process_stdin, name='STDIN')
+            self.__stdout_thread = threading.Thread(target=self.__process_stdout, name='STDOUT')
+            self.__stderr_thread = threading.Thread(target=self.__process_stderr, name='STDERR')
+            self.__stdin_thread.start()
+            self.__stdout_thread.start()
+            self.__stderr_thread.start()
+        elif sys.stdin.isatty():
+            self.__stdin_thread = threading.Thread(target=self.__process_stdin, name='STDIN')
+            self.__stdin_thread.start()
 
     def __process_stdin(self):
         try:
@@ -67,7 +73,8 @@ class Command:
     def __stop_threads(self):
         for thread in [self.__stdin_thread, self.__stdout_thread, self.__stderr_thread]:
             try:
-                thread.join(10)
+                if thread:
+                    thread.join(10)
             except TimeoutError:
                 pass
 
@@ -75,16 +82,20 @@ class Command:
         return ''.join([(lambda x: x[:50])(x) for x in buffer])
 
     def wait(self, timeout=None):
-        self.__process.wait(timeout=timeout)
+        if self.__args:
+            self.__process.wait(timeout=timeout)
+        else:
+            self.__stdin_thread.join()
+
         self.__terminate = True
         self.__end_time = time.time()
         payload = Payload(self.__config)
         payload.prepare(
-            cmd=' '.join(self.__args),
-            pid=self.__process.pid,
+            cmd=' '.join(self.__args) if self.__args else '<discordify>',
+            pid=self.__process.pid if self.__args else getpgid(0),
             start=self.__start_time,
             end=self.__end_time,
-            returncode=self.__process.returncode,
+            returncode=self.__process.returncode if self.__args else 0,
             stdin_lines=self.__stdin_lines,
             stdout_lines=self.__stdout_lines,
             stderr_lines=self.__stderr_lines,
