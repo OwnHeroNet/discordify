@@ -39,7 +39,7 @@ class Command:
             self.__stdin_thread.start()
             self.__stdout_thread.start()
             self.__stderr_thread.start()
-        elif sys.stdin.isatty():
+        elif not sys.stdin.isatty():
             self.__stdin_thread = threading.Thread(target=self.__process_stdin, name='STDIN')
             self.__stdin_thread.start()
 
@@ -47,12 +47,16 @@ class Command:
         try:
             if not sys.stdin.isatty():
                 for line in sys.stdin:
-                    if self.__process.poll() or self.__terminate:
+                    if self.__terminate or self.__args and self.__process.poll():
                         break
                     self.__stdin_buffer.append(str(line))
                     self.__stdin_lines += 1
-                    self.__process.stdin.write(bytes(line, 'utf-8'))
-                self.__process.stdin.close()
+                    if self.__args:
+                        self.__process.stdin.write(bytes(line, 'utf-8'))
+                    else:
+                        sys.stdout.buffer.write(bytes(line, 'utf-8'))
+                if self.__args:
+                    self.__process.stdin.close()
         except BrokenPipeError:
             pass
 
