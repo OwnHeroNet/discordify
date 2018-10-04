@@ -44,16 +44,17 @@ Default color is solarized red.
 {
     "global": {
         "user_name": "Sascha Just",
-        "user_url": "mailto:sascha.just@own-hero.net",
+        "user_email": "sascha.just@own-hero.net",
+        "user_url": "https://sascha-just.com",
         "thumbnail": "https://users.own-hero.net/~methos/discordify.png",
     },
     "default": {
-        "color": 0xD11C24,
+        "color": "0xD11C24",
         "title": "Discordify Notification",
         "webhook": "https://discordapp.com/api/webhooks/497154937839681537/yadayadayada"
     },
     "example2": {
-        "color": 0x259286,
+        "color": "0x259286",
         "title": "Example Notification",
         "webhook": "https://discordapp.com/api/webhooks/928374923748923742/hwkjerhkjwehr"
     }
