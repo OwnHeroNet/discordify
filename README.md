@@ -33,7 +33,7 @@ The configuration stack is evaluated as follows:
 All configuration options are optional, _except_ for webhook. 
 
 The configuration file format is `JSON` and comes with the following parameters.
-If the `user_url` starts with `mailto:` and `user_icon` is not set, we infer a gravatar link
+If the `user_email` is set, but `user_icon` isn't, we infer a gravatar link
 automatically. The default thumbnail icon is the Discordify logo. 
 
 The footer usually contains "via `$HOSTNAME`".
@@ -65,9 +65,14 @@ For a full list of supported options see `discordify --help`.
 ### Getting the webhook url
 
 Below you see the user interface for adding webhooks in Discord.
-Go to [Server Settings] -> [Webhooks] -> [Create Webhook] and configure a new webhook, e.g.:
+Either go to [Server Settings] -> [Webhooks] -> [Create Webhook] and configure a new webhook or go to
+[Edit Channel] -> [Webhooks] -> [Create Webhook].
 
-![WebHook UI in Discord](screenshots/webhook_generation.png)
+![WebHook UI in Discord](screenshots/webhook_generation_discord_1.png)
+
+![WebHook UI in Discord](screenshots/webhook_generation_discord_2.png)
+
+![WebHook UI in Discord](screenshots/webhook_generation_discord_3.png)
 
 Copy the webhook URL and paste it in your Discordify configuration file or use it on the commandline
 as `discordify --webhook 'https://your-webhook.example'`.
