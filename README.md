@@ -13,9 +13,7 @@ Discordify is a wrapper to execute UNIX shell commands and notify a channel in e
 
 1. Install this package using pip:
     `pip install git+https://github.com/OwnHeroNet/discordify`
-2. Link/Copy wrappers to executable locations on `$PATH`, e.g. `/usr/local/bin/discordify`.
-
-    Alternatively, you can set up an alias: `alias discordify="python -m discordify"`
+2. Set up an alias: `alias discordify="python -m discordify"`
 3. Add a config for a specific webhook to the global or local config (see below).
 
 ### Usage

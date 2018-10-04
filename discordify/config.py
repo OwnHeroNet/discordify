@@ -122,9 +122,9 @@ class Arguments:
                 takes_arg=True,
                 required=False
             ),
-            'thumbnail': Option(
-                long_opt='thumbnail',
-                description='Defines the thumbnail of the embed.',
+            'footer_icon': Option(
+                long_opt='footer_icon',
+                description='Defines the footer icon of the embed.',
                 default='https://users.own-hero.net/~methos/discordify.png',
                 takes_arg=True,
                 required=False
@@ -252,7 +252,7 @@ class Config:
         return self.config['description'] if 'description' in self.config else None
 
     def get_thumbnail(self):
-        return self.config['thumbnail'] if 'thumbnail' in self.config else 'https://users.own-hero.net/~methos/discordify.png'
+        return self.config['thumbnail'] if 'thumbnail' in self.config else None
 
     def get_footer(self):
         return self.config['footer'] if 'footer' in self.config else 'Empty'
