@@ -212,6 +212,9 @@ class Config:
             except Exception:
                 pass
 
+        if 'color' in self.config:
+            self.config['color'] = int(str(self.config['color']), 16)
+
         if 'user_icon' not in self.config and 'user_email' in self.config:
             email = self.config['user_email']
             self.config['user_icon'] = Config.compute_gravatar_url(email)
