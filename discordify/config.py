@@ -116,7 +116,7 @@ class Arguments:
                 required=True
             ),
             'user_url': Option(
-                long_opt='user_email',
+                long_opt='user_url',
                 description='Defines the url of the user in the embed.',
                 default='https://github.com/OwnHeroNet/discordify',
                 takes_arg=True,
@@ -125,7 +125,7 @@ class Arguments:
             'footer_icon': Option(
                 long_opt='footer_icon',
                 description='Defines the footer icon of the embed.',
-                default='https://users.own-hero.net/~methos/discordify.png',
+                default='https://raw.githubusercontent.com/OwnHeroNet/discordify/master/icon/icon.png',
                 takes_arg=True,
                 required=False
             ),
