@@ -5,7 +5,7 @@ import time
 from collections import deque
 from datetime import timedelta
 
-from payload import Payload
+from payload import Payload, TeamsPayload
 
 
 class Command:
@@ -38,26 +38,29 @@ class Command:
         self.__stderr_thread.start()
 
     def __process_stdin(self):
-        if not sys.stdin.isatty():
-            for line in sys.stdin:
-                if self.__process.poll() or self.__terminate:
-                    break
-                self.__stdin_buffer.append(str(line))
-                self.__stdin_lines += 1
-                self.__process.stdin.write(bytes(line, 'utf-8'))
-            self.__process.stdin.close()
+        try:
+            if not sys.stdin.isatty():
+                for line in sys.stdin:
+                    if self.__process.poll() or self.__terminate:
+                        break
+                    self.__stdin_buffer.append(str(line))
+                    self.__stdin_lines += 1
+                    self.__process.stdin.write(bytes(line, 'utf-8'))
+                self.__process.stdin.close()
+        except BrokenPipeError:
+            pass
 
     def __process_stdout(self):
         with self.__process.stdout as output:
             for line in iter(output.readline, b''):
-                self.__stdout_buffer.append(str(line))
+                self.__stdout_buffer.append(str(line, 'utf-8'))
                 self.__stdout_lines += 1
                 sys.stdout.buffer.write(line)
 
     def __process_stderr(self):
         with self.__process.stderr as output:
             for line in iter(output.readline, b''):
-                self.__stderr_buffer.append(str(line))
+                self.__stderr_buffer.append(str(line, 'utf-8'))
                 self.__stderr_lines += 1
                 sys.stderr.buffer.write(line)
 
@@ -67,6 +70,9 @@ class Command:
                 thread.join(10)
             except TimeoutError:
                 pass
+
+    def __prep_buffer(self, buffer):
+        return ''.join([(lambda x: x[:50])(x) for x in buffer])
 
     def wait(self, timeout=None):
         self.__process.wait(timeout=timeout)
@@ -82,7 +88,9 @@ class Command:
             stdin_lines=self.__stdin_lines,
             stdout_lines=self.__stdout_lines,
             stderr_lines=self.__stderr_lines,
-            stdout_buffer='\n> '.join(self.__stdout_buffer))
+            stdin_buffer=self.__prep_buffer(self.__stdin_buffer),
+            stdout_buffer=self.__prep_buffer(self.__stdout_buffer),
+            stderr_buffer=self.__prep_buffer(self.__stderr_buffer))
         self.__stop_threads()
 
     def kill(self):

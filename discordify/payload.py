@@ -32,9 +32,17 @@ class Payload:
         self.footer_icon = config.get_footer_icon()
         self.ts = None
 
-    def prepare(self, cmd, pid, start, end, returncode, stdin_lines, stdout_lines, stderr_lines, stdout_buffer):
-        self.title = 'CMD: `{}`'.format(cmd)
-        self.desc = 'Execution done:\n' + stdout_buffer
+    def prepare(self, cmd, pid, start, end, returncode, stdin_lines, stdout_lines, stderr_lines, stdin_buffer, stdout_buffer, stderr_buffer):
+        self.title = '**CMD:** `{}`'.format(cmd)
+
+        self.desc = ''
+        if len(stdin_buffer) > 0:
+            self.desc += '**STDIN buffer:**\n```\n' + stdin_buffer + '\n```'
+        if len(stdout_buffer) > 0:
+            self.desc += '\n**STDOUT buffer:**\n```\n' + stdout_buffer + '\n```'
+        if len(stderr_buffer) > 0:
+            self.desc += '\n**STDERR buffer:**\n```\n' + stderr_buffer + '\n```'
+
         runtime = datetime.timedelta(seconds=end - start)
         self.add_field('Return Code', returncode)
         self.add_field('Run time', str(runtime))
@@ -44,6 +52,8 @@ class Payload:
         self.add_field('STDIN',  '{} lines'.format(stdin_lines))
         self.add_field('STDOUT', '{} lines'.format(stdout_lines))
         self.add_field('STDERR', '{} lines'.format(stderr_lines))
+
+        self.ts = str(datetime.datetime.utcfromtimestamp(time.time()))
 
         self.post()
 
@@ -103,6 +113,7 @@ class Payload:
         data = {}
 
         data["embeds"] = []
+
         embed = defaultdict(dict)
         if self.msg:
             data["content"] = self.msg
@@ -162,7 +173,19 @@ class Payload:
         result = requests.post(self.__webhook, data=self.json, headers=headers)
 
         if result.status_code == 400:
+            print(self.json)
             print("Post Failed, Error 400", file=sys.stderr)
         # else:
         #     print("Payload delivered successfuly", file=sys.stderr)
         #     print("Code : "+str(result.status_code), file=sys.stderr)
+
+
+class TeamsPayload(Payload):
+
+    def __init__(self, config):
+        super().__init__(config)
+
+    @property
+    def json(self):
+        '''see https://github.com/rveachkc/pymsteams'''
+        pass
