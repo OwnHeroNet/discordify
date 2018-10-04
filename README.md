@@ -2,6 +2,8 @@
 
 Discordify is a wrapper to execute UNIX shell commands and notify a channel in either Slack or Discord about the results.
 
+![Demo](screenshots/demo.gif)
+
 ### Installation
 
 1. Install this package using pip:
