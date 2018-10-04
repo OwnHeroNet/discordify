@@ -160,7 +160,8 @@ class Arguments:
             elif option.long_opt in config.config:
                 pass
             elif option.default:
-                config.config[option.long_opt] = option.process(option.default)
+                dopts['--'+option.long_opt] = option.default
+                config.config[option.long_opt] = option.process(dopts)
             elif option.required:
                 missing_options.append(option.long_opt)
 
