@@ -6,7 +6,9 @@ Discordify is a wrapper to execute UNIX shell commands and notify a channel in e
 
 1. Install this package using pip:
     `pip install https://github.com/OwnHeroNet/discordify.git`
-2. Link/Copy wrappers to executable locations on `$PATH`, e.g. `/usr/local/bin/discordify`
+2. Link/Copy wrappers to executable locations on `$PATH`, e.g. `/usr/local/bin/discordify`.
+
+    Alternatively, you can set up an alias: `alias discordify="python -m discordify"`
 3. Add a config for a specific webhook to the global or local config (see below).
 
 ### Usage
@@ -30,38 +32,29 @@ The configuration stack is evaluated as follows:
 - Local: `${HOME}/.discordify.conf`
 - Instance: command line opts
 
-All configuration options are optional, _except_ for webhook. 
+All configuration options are optional, _except_ for webhook.
 
 The configuration file format is `JSON` and comes with the following parameters.
 If the `user_email` is set, but `user_icon` isn't, we infer a gravatar link
-automatically. The default thumbnail icon is the Discordify logo. 
+automatically. The default thumbnail icon is the Discordify logo.
 
 The footer usually contains "via `$HOSTNAME`".
 
-Default color is solarized red. 
+Default color is solarized red.
 
-```json 
+```json
 {
-    "global": {
-        "user_name": "Sascha Just",
-        "user_email": "sascha.just@own-hero.net",
-        "user_url": "https://sascha-just.com",
-        "thumbnail": "https://users.own-hero.net/~methos/discordify.png",
-    },
-    "default": {
-        "color": "0xD11C24",
-        "title": "Discordify Notification",
-        "webhook": "https://discordapp.com/api/webhooks/497154937839681537/yadayadayada"
-    },
-    "example2": {
-        "color": "0x259286",
-        "title": "Example Notification",
-        "webhook": "https://discordapp.com/api/webhooks/928374923748923742/hwkjerhkjwehr"
-    }
+    "user_name": "Your Name",
+    "user_email": "Your Email Address",
+    "user_url": "Your Website Address",
+    "thumbnail": "https://path.to.your/image.png",
+    "color": "0xD11C24",
+    "title": "Discordify Notification",
+    "webhook": "https://discordapp.com/api/webhooks/id/token"
 }
 ```
 
-For a full list of supported options see `discordify --help`. 
+For a full list of supported options see `discordify --help`.
 
 ### Getting the webhook url
 
