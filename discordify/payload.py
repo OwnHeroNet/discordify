@@ -33,9 +33,14 @@ class Payload:
         self.ts = None
 
     def prepare(self, cmd, pid, start, end, returncode, stdin_lines, stdout_lines, stderr_lines, stdin_buffer, stdout_buffer, stderr_buffer):
-        self.title = '**CMD:** `{}`'.format(cmd)
+        assert len(cmd) > 0
+        self.title = '**CMD:** `{}`'.format(cmd[0])
 
-        self.desc = ''
+        self.desc = '**Arguments:**\n```\n'
+        for arg in cmd[1:]:
+            self.desc += '[' + arg + ']\n'
+        self.desc += '```\n'
+
         if len(stdin_buffer) > 0:
             self.desc += '**STDIN buffer:**\n```\n' + stdin_buffer + '\n```'
         if len(stdout_buffer) > 0:
@@ -44,14 +49,20 @@ class Payload:
             self.desc += '\n**STDERR buffer:**\n```\n' + stderr_buffer + '\n```'
 
         runtime = datetime.timedelta(seconds=end - start)
-        self.add_field('Return Code', returncode)
-        self.add_field('Run time', str(runtime))
 
+        if self.thumbnail:
+            self.add_field('Return Code', returncode)
+
+        self.add_field('Run time', str(runtime))
         self.add_field('Start time', time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start)))
         self.add_field('End time', time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end)))
+
         self.add_field('STDIN',  '{} lines'.format(stdin_lines))
         self.add_field('STDOUT', '{} lines'.format(stdout_lines))
         self.add_field('STDERR', '{} lines'.format(stderr_lines))
+
+        if not self.thumbnail:
+            self.add_field('Return Code', returncode)
 
         self.ts = str(datetime.datetime.utcfromtimestamp(time.time()))
 

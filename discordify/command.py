@@ -95,7 +95,7 @@ class Command:
         self.__end_time = time.time()
         payload = Payload(self.__config)
         payload.prepare(
-            cmd=' '.join(self.__args) if self.__args else '<discordify>',
+            cmd=self.__args if self.__args else ['<discordify>'],
             pid=self.__process.pid if self.__args else getpgid(0),
             start=self.__start_time,
             end=self.__end_time,
