@@ -54,7 +54,7 @@ class Command:
                     if self.__args:
                         self.__process.stdin.write(bytes(line, 'utf-8'))
                     else:
-                        sys.stdout.buffer.write(bytes(line, 'utf-8'))
+                        sys.stdout.write(line)
                 if self.__args:
                     self.__process.stdin.close()
         except BrokenPipeError:
@@ -65,14 +65,14 @@ class Command:
             for line in iter(output.readline, b''):
                 self.__stdout_buffer.append(str(line, 'utf-8'))
                 self.__stdout_lines += 1
-                sys.stdout.buffer.write(line)
+                sys.stdout.write(str(line, 'utf-8'))
 
     def __process_stderr(self):
         with self.__process.stderr as output:
             for line in iter(output.readline, b''):
                 self.__stderr_buffer.append(str(line, 'utf-8'))
                 self.__stderr_lines += 1
-                sys.stderr.buffer.write(line)
+                sys.stderr.write(str(line, 'utf-8'))
 
     def __stop_threads(self):
         for thread in [self.__stdin_thread, self.__stdout_thread, self.__stderr_thread]:
