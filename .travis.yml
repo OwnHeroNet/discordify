@@ -1,0 +1,12 @@
+language: python
+python:
+  - "3.5"
+  - "3.6"
+  - "3.7-dev" 
+install:
+  - pip install -r requirements.txt
+  - pip install .
+script:
+  - test/test.sh
+#notifications:
+#  discord: https://discordapp.com/api/webhooks/497494338125824010/L4AJaQ2KtpmT1NmfLj_MsLSHmCQr2Blcyey0YjmYHu7XqvzIMdIxz9U7P-SDI2GxHgW6

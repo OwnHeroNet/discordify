@@ -1,8 +1,13 @@
+
 # ![Logo](logo-dark/logo.png)
 
 Discordify is a wrapper to execute UNIX shell commands and notify a channel in either Slack or Discord about the results.
 
 ![Demo](screenshots/demo.gif)
+
+#### Project Status
+
+[![Build Status](https://travis-ci.com/OwnHeroNet/discordify.svg?branch=master)](https://travis-ci.com/OwnHeroNet/discordify)
 
 ### Installation
 
