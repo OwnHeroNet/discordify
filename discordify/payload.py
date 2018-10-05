@@ -123,12 +123,12 @@ class Payload:
 
         data = {}
 
-        data["embeds"] = []
-
-        embed = defaultdict(dict)
         if self.msg:
             data["content"] = self.msg
         else:
+            data["embeds"] = []
+
+            embed = defaultdict(dict)
             if self.author:
                 embed["author"]["name"] = self.author
             if self.author_icon:
@@ -165,13 +165,6 @@ class Payload:
 
             data["embeds"].append(dict(embed))
 
-        empty = all(not d for d in data["embeds"])
-
-        if empty and 'content' not in data:
-            print('You can\'t post an empty payload.', file=sys.stderr)
-        if empty:
-            data['embeds'] = []
-
         return json.dumps(data, indent=4)
 
     def post(self):
@@ -183,20 +176,6 @@ class Payload:
 
         result = requests.post(self.__webhook, data=self.json, headers=headers)
 
-        if result.status_code == 400:
+        if result.status_code >= 400:
             print(self.json)
-            print("Post Failed, Error 400", file=sys.stderr)
-        # else:
-        #     print("Payload delivered successfuly", file=sys.stderr)
-        #     print("Code : "+str(result.status_code), file=sys.stderr)
-
-
-class TeamsPayload(Payload):
-
-    def __init__(self, config):
-        super().__init__(config)
-
-    @property
-    def json(self):
-        '''see https://github.com/rveachkc/pymsteams'''
-        pass
+            print("Post Failed, Error {}".format(result.status_code), file=sys.stderr)
