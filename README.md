@@ -1,5 +1,5 @@
 
-# ![Logo](logo-dark/logo.png)
+# ![Logo](logo/Logo%20Dark%20Font.png)
 
 Discordify is a wrapper to execute UNIX shell commands and notify a channel in either Slack or Discord about the results.
 
