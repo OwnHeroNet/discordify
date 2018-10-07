@@ -11,8 +11,13 @@ def main():
 
     try:
         command = arguments.parse()
-        command.run()
-        command.wait()
+        try:
+            command.run()
+            command.wait()
+        except (KeyboardInterrupt, SystemExit):
+            command.handle_interrupt()
+
+        sys.exit(0)
     except getopt.GetoptError as err:
         # print help information and exit:
         print(err)
