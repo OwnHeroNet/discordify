@@ -118,7 +118,7 @@ class Message(Payload):
         self.post()
 
     def emit_interrupt(self):
-        self.payload["content"] = '{emoticon} Your `{command}` command on `{hostname}` started by `{username}` just was interrupted after {runtime}.'.format(
+        self.payload["content"] = '{emoticon} Your `{command}` command on `{hostname}` started by `{username}` was just cancelled after {runtime}.'.format(
             emoticon=':octagonal_sign:',
             command=self.data.command,
             hostname=self.data.hostname,
@@ -173,7 +173,7 @@ class Embed(Payload):
         # set the icon
         embed["thumbnail"]['url'] = self.config.icon_period
 
-        embed["title"] = 'Periodic update on `[' + self.data.pid + '] ' + self.data.command + '`'
+        embed["title"] = 'Periodic update on `[{pid}] {command}`'.format(pid=self.data.pid, command=self.data.command)
 
         # >>> description
         desc = ''

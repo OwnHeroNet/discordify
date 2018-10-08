@@ -86,6 +86,11 @@ class Option:
 
 class Arguments:
 
+    class HelpRequest(Exception):
+
+        def __init__(self):
+            super().__init__('User requested help.')
+
     def __init__(self):
         self.options = {
             'help': Option(
@@ -169,8 +174,8 @@ class Arguments:
                 takes_arg=True,
                 required=False
             ),
-            'period': Option(
-                long_opt='period',
+            'periodic': Option(
+                long_opt='periodic',
                 short_opt='p',
                 description='Defines a periodic interval (in seconds) on when to report.',
                 takes_arg=True,
@@ -264,7 +269,7 @@ class Arguments:
         dopts = dict(opts)
         if self.options['help'].contained(dopts):
             self.usage()
-            exit(0)
+            raise Arguments.HelpRequest()
 
         config = Config()
 
@@ -285,8 +290,8 @@ class Arguments:
             print(config)
             raise getopt.GetoptError('Missing required options "{}".\n'.format(','.join(missing_options)))
 
-        if config.user_email and not config.user_icon:
-            config.config['user_icon'] = compute_gravatar_url(config.user_email)
+        if getattr(config, "user_email") and not getattr(config, 'user_icon'):
+            config.config['user_icon'] = compute_gravatar_url(getattr(config, "user_email"))
 
         return Command(config, args)
 
@@ -312,6 +317,11 @@ and the command line options (in that order).
 
 class Config:
 
+    class InvalidConfiguration(Exception):
+
+        def __init__(self, path, error):
+            super().__init__("Invalid config at {}: {}".format(path, error))
+
     def __init__(self):
         self.config = {}
         self.load()
@@ -323,8 +333,7 @@ class Config:
                     try:
                         self.config.update(json.load(f))
                     except json.JSONDecodeError as err:
-                        print("Invalid config at {}: {}".format(config, err))
-                        exit(34)
+                        raise Config.InvalidConfiguration(config, err)
 
             except Exception:
                 pass

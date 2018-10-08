@@ -1,9 +1,9 @@
 import getopt
 import sys
-from discordify.command import Command
-from discordify.config import Arguments
 
-EXIT_INVALID_ARGS = 0x01
+import discordify.exit_codes as codes
+from discordify.command import Command
+from discordify.config import Arguments, Config
 
 
 def main():
@@ -16,13 +16,17 @@ def main():
             command.wait()
         except (KeyboardInterrupt, SystemExit):
             command.handle_interrupt()
-
-        sys.exit(0)
-    except getopt.GetoptError as err:
-        # print help information and exit:
-        print(err)
+        sys.exit(command.exit_code)
+    except Arguments.HelpRequest:
         arguments.usage()
-        sys.exit(EXIT_INVALID_ARGS)
+        exit(codes.EXIT_OK)
+    except Config.InvalidConfiguration as err:
+        print(err, file=sys.stderr)
+        exit(codes.EXIT_INVALID_CONFIG)
+    except getopt.GetoptError as err:
+        print(err, file=sys.stderr)
+        print('See --help for usage information.', file=sys.stderr)
+        sys.exit(codes.EXIT_INVALID_ARGS)
 
 
 if __name__ == '__main__':

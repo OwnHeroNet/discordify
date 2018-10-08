@@ -8,6 +8,7 @@ from datetime import timedelta
 from os import close, getpgid, getpid
 
 import discordify.utils as utils
+import discordify.exit_codes as codes
 from discordify.mode import Mode
 from discordify.data import Data
 from discordify.payload import Payload
@@ -36,6 +37,7 @@ class Command:
         self.__period_timer = None
         self.__timeout_timer = None
         self.__mode = Mode.SINK
+        self.__exitcode = codes.EXIT_OK
 
     def run(self):
         self.__start_time = time.time()
@@ -56,8 +58,8 @@ class Command:
         signal.signal(signal.SIGUSR1, self.__handle_signal)
         signal.signal(signal.SIGPIPE, self.__shutdown)
 
-        if self.__config.period:
-            self.__period_timer = threading.Timer(self.__config.period, self.__handle_period)
+        if self.__config.periodic:
+            self.__period_timer = threading.Timer(self.__config.periodic, self.__handle_period)
             self.__period_timer.start()
 
         if self.__config.timeout:
@@ -107,11 +109,19 @@ class Command:
             except TimeoutError:
                 pass
 
+    @property
+    def exit_code(self):
+        return self.__exitcode
+
     def __monitor(self):
         while not self.__terminate:
             self.__cpu_usage.append(utils.cpu_percent())
 
     def __prep_buffer(self, buffer):
+        '''
+        Takes a buffer (deque) and returns a string, truncating the lines 
+        to 50 characters.
+        '''
         return ''.join([(lambda x: x[:50])(x) for x in buffer])
 
     def wait(self, timeout=None):
@@ -153,7 +163,7 @@ class Command:
         payload.emit_period()
 
         if not self.__terminate:
-            self.__period_timer = threading.Timer(self.__config.period, self.__handle_period)
+            self.__period_timer = threading.Timer(self.__config.periodic, self.__handle_period)
             self.__period_timer.start()
 
     def __handle_signal(self, *args):
@@ -163,12 +173,14 @@ class Command:
     def __handle_timeout(self):
         assert self.__timeout_timer
         self.__shutdown()
-
+        self.__exitcode = codes.EXIT_TIMEOUT
+        print('Discordify enforced timeout after '+str(self.__config.timeout)+' second(s).', file=sys.stderr)
         payload = Payload.create(self.__config, self.data)
         payload.emit_timeout()
 
     def handle_interrupt(self):
         self.__shutdown()
+        self.__exitcode = codes.EXIT_INTERRUPTED
         payload = Payload.create(self.__config, self.data)
         payload.emit_interrupt()
 
