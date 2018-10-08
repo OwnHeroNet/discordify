@@ -9,6 +9,7 @@ setup(name='discordify',
       license='MIT',
       packages=['discordify'],
       install_requires=[
-          'requests'
+          'requests',
+          'psutil'
       ],
       zip_safe=False)

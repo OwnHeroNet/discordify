@@ -1,12 +1,18 @@
+import signal
 import subprocess
 import sys
 import threading
 import time
 from collections import deque
 from datetime import timedelta
-from os import getpgid
+from os import close, getpgid, getpid
 
+import discordify.utils as utils
+import discordify.exit_codes as codes
+from discordify.mode import Mode
+from discordify.data import Data
 from discordify.payload import Payload
+from psutil import virtual_memory
 
 
 class Command:
@@ -19,14 +25,19 @@ class Command:
         self.__stdout_thread = None
         self.__stderr_thread = None
         self.__start_time = 0
-        self.__end_time = 0
+        self.__end_time = None
         self.__terminate = False
-        self.__stdin_buffer = deque(maxlen=5)
-        self.__stdout_buffer = deque(maxlen=5)
-        self.__stderr_buffer = deque(maxlen=5)
+        self.__stdin_buffer = deque(maxlen=config.buffer_size)
+        self.__stdout_buffer = deque(maxlen=config.buffer_size)
+        self.__stderr_buffer = deque(maxlen=config.buffer_size)
         self.__stdin_lines = 0
         self.__stdout_lines = 0
         self.__stderr_lines = 0
+        self.__cpu_usage = deque(maxlen=100)
+        self.__period_timer = None
+        self.__timeout_timer = None
+        self.__mode = Mode.SINK
+        self.__exitcode = codes.EXIT_OK
 
     def run(self):
         self.__start_time = time.time()
@@ -42,6 +53,18 @@ class Command:
         elif not sys.stdin.isatty():
             self.__stdin_thread = threading.Thread(target=self.__process_stdin, name='STDIN')
             self.__stdin_thread.start()
+
+        # register SIGUSR1 to force a periodic report.
+        signal.signal(signal.SIGUSR1, self.__handle_signal)
+        signal.signal(signal.SIGPIPE, self.__shutdown)
+
+        if self.__config.periodic:
+            self.__period_timer = threading.Timer(self.__config.periodic, self.__handle_period)
+            self.__period_timer.start()
+
+        if self.__config.timeout:
+            self.__timeout_timer = threading.Timer(self.__config.timeout, self.__handle_timeout)
+            self.__timeout_timer.start()
 
     def __process_stdin(self):
         try:
@@ -75,6 +98,10 @@ class Command:
                 sys.stderr.write(str(line, 'utf-8'))
 
     def __stop_threads(self):
+        for timer in [self.__period_timer, self.__timeout_timer]:
+            if timer:
+                timer.cancel()
+
         for thread in [self.__stdin_thread, self.__stdout_thread, self.__stderr_thread]:
             try:
                 if thread:
@@ -82,7 +109,19 @@ class Command:
             except TimeoutError:
                 pass
 
+    @property
+    def exit_code(self):
+        return self.__exitcode
+
+    def __monitor(self):
+        while not self.__terminate:
+            self.__cpu_usage.append(utils.cpu_percent())
+
     def __prep_buffer(self, buffer):
+        '''
+        Takes a buffer (deque) and returns a string, truncating the lines 
+        to 50 characters.
+        '''
         return ''.join([(lambda x: x[:50])(x) for x in buffer])
 
     def wait(self, timeout=None):
@@ -93,20 +132,57 @@ class Command:
 
         self.__terminate = True
         self.__end_time = time.time()
-        payload = Payload(self.__config)
-        payload.prepare(
-            cmd=self.__args if self.__args else ['<discordify>'],
-            pid=self.__process.pid if self.__args else getpgid(0),
-            start=self.__start_time,
-            end=self.__end_time,
-            returncode=self.__process.returncode if self.__args else 0,
-            stdin_lines=self.__stdin_lines,
-            stdout_lines=self.__stdout_lines,
-            stderr_lines=self.__stderr_lines,
-            stdin_buffer=self.__prep_buffer(self.__stdin_buffer),
-            stdout_buffer=self.__prep_buffer(self.__stdout_buffer),
-            stderr_buffer=self.__prep_buffer(self.__stderr_buffer))
         self.__stop_threads()
+
+        self.report()
+
+    def report(self):
+        payload = Payload.create(self.__config, self.data)
+        payload.emit_final()
+
+    @property
+    def data(self):
+        return Data(arguments=self.__args,
+                    pid=self.__process.pid if self.__args else getpgid(0),
+                    start_time=self.__start_time,
+                    end_time=self.__end_time if self.__end_time else time.time(),
+                    mode=self.__mode,
+                    returncode=self.__process.returncode if self.__args else 0,
+                    stdin_lines=self.__stdin_lines,
+                    stdout_lines=self.__stdout_lines,
+                    stderr_lines=self.__stderr_lines,
+                    stdin_buffer=self.__prep_buffer(self.__stdin_buffer),
+                    stdout_buffer=self.__prep_buffer(self.__stdout_buffer),
+                    stderr_buffer=self.__prep_buffer(self.__stderr_buffer))
+
+    def __handle_period(self):
+        if self.__period_timer:
+            self.__period_timer.cancel()
+
+        payload = Payload.create(self.__config, self.data)
+        payload.emit_period()
+
+        if not self.__terminate:
+            self.__period_timer = threading.Timer(self.__config.periodic, self.__handle_period)
+            self.__period_timer.start()
+
+    def __handle_signal(self, *args):
+        payload = Payload.create(self.__config, self.data)
+        payload.emit_signal()
+
+    def __handle_timeout(self):
+        assert self.__timeout_timer
+        self.__shutdown()
+        self.__exitcode = codes.EXIT_TIMEOUT
+        print('Discordify enforced timeout after '+str(self.__config.timeout)+' second(s).', file=sys.stderr)
+        payload = Payload.create(self.__config, self.data)
+        payload.emit_timeout()
+
+    def handle_interrupt(self):
+        self.__shutdown()
+        self.__exitcode = codes.EXIT_INTERRUPTED
+        payload = Payload.create(self.__config, self.data)
+        payload.emit_interrupt()
 
     def kill(self):
         assert self.__process != None
@@ -117,3 +193,13 @@ class Command:
         assert self.__process != None
         self.__process.terminate()
         self.__stop_threads()
+
+    def __shutdown(self):
+        self.__terminate = True
+        self.__end_time = time.time()
+        if self.__process:
+            self.terminate()
+            if not self.__process.poll():
+                self.kill()
+
+        close(0)

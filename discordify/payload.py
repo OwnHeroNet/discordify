@@ -1,171 +1,68 @@
 import datetime
 import json
+import os
 import sys
 import time
+from abc import ABC, abstractmethod
 from collections import defaultdict
-
+from discordify.mode import Mode
 import requests
 
+TEST_MODE = os.environ.get('DISCORDIFY_TESTING')
 
-class Payload:
 
-    def __init__(self, config):
-        self.__webhook = config.get_webhook()
-        self.msg = config.get_message()
-        self.color = config.get_color()
+class Payload(ABC):
 
-        self.title = config.get_title()
-        self.title_url = config.get_title_url()
+    def __init__(self, config, data):
+        self.__config = config
+        self.__data = data
+        self.__payload = {}
 
-        self.author = config.get_user_name()
-        self.author_icon = config.get_user_icon()
-        self.author_url = config.get_user_url()
-
-        self.desc = config.get_description()
-
-        self.fields = []
-
-        self.image = config.get_image()
-        self.thumbnail = config.get_thumbnail()
-
-        self.footer = config.get_footer()
-        self.footer_icon = config.get_footer_icon()
-        self.ts = None
-
-    def prepare(self, cmd, pid, start, end, returncode, stdin_lines, stdout_lines, stderr_lines, stdin_buffer, stdout_buffer, stderr_buffer):
-        assert len(cmd) > 0
-        self.title = '**CMD:** `{}`'.format(cmd[0])
-
-        self.desc = '**Arguments:**\n```\n'
-        for arg in cmd[1:]:
-            self.desc += '[' + arg + ']\n'
-        self.desc += '```\n'
-
-        if len(stdin_buffer) > 0:
-            self.desc += '**STDIN buffer:**\n```\n' + stdin_buffer + '\n```'
-        if len(stdout_buffer) > 0:
-            self.desc += '\n**STDOUT buffer:**\n```\n' + stdout_buffer + '\n```'
-        if len(stderr_buffer) > 0:
-            self.desc += '\n**STDERR buffer:**\n```\n' + stderr_buffer + '\n```'
-
-        runtime = datetime.timedelta(seconds=end - start)
-
-        if self.thumbnail:
-            self.add_field('Return Code', returncode)
-
-        self.add_field('Run time', str(runtime))
-        self.add_field('Start time', time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start)))
-        self.add_field('End time', time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end)))
-
-        self.add_field('STDIN',  '{} lines'.format(stdin_lines))
-        self.add_field('STDOUT', '{} lines'.format(stdout_lines))
-        self.add_field('STDERR', '{} lines'.format(stderr_lines))
-
-        if not self.thumbnail:
-            self.add_field('Return Code', returncode)
-
-        self.ts = str(datetime.datetime.utcfromtimestamp(time.time()))
-
-        self.post()
-
-    def add_field(self, name, value, inline=True):
-        '''Adds a field to `self.fields`'''
-
-        field = {
-            'name': name,
-            'value': value,
-            'inline': inline
-        }
-
-        self.fields.append(field)
-
-    def set_desc(self, desc):
-        self.desc = desc
-
-    def __set_author(self, author, icon=None, url=None):
-        self.author = author
-        if icon:
-            self.author_icon = icon
-        if url:
-            self.author_url = url
-
-    def __set_title(self, title, url=None):
-        self.title = title
-        if url:
-            self.title_url = url
-
-    def __set_thumbnail(self, url):
-        self.thumbnail = url
-
-    def __set_image(self, url):
-        self.image = url
-
-    def __set_footer(self, text, icon=None, timestamp=True):
-        self.footer = text
-        if icon:
-            self.footer_icon = icon
-
-        if not timestamp:
-            return
-        elif timestamp == True:
-            self.ts = str(datetime.datetime.utcfromtimestamp(time.time()))
+    @staticmethod
+    def create(config, data):
+        if config.simple:
+            return Message(config, data)
         else:
-            self.ts = str(datetime.datetime.utcfromtimestamp(timestamp))
+            return Embed(config, data)
 
-    def __del_field(self, index):
-        self.fields.pop(index)
+    @abstractmethod
+    def emit_final(self):
+        pass
+
+    @abstractmethod
+    def emit_timeout(self):
+        pass
+
+    @abstractmethod
+    def emit_period(self):
+        pass
+
+    @abstractmethod
+    def emit_signal(self):
+        pass
+
+    @abstractmethod
+    def emit_interrupt(self):
+        pass
 
     @property
-    def json(self, *arg):
+    def config(self):
+        return self.__config
+
+    @property
+    def data(self):
+        return self.__data
+
+    @property
+    def payload(self):
+        return self.__payload
+
+    @property
+    def json(self):
         '''
-        Formats the data into a payload
+        Formats the data into a payload.
         '''
-
-        data = {}
-
-        if self.msg:
-            data["content"] = self.msg
-        else:
-            data["embeds"] = []
-
-            embed = defaultdict(dict)
-            if self.author:
-                embed["author"]["name"] = self.author
-            if self.author_icon:
-                embed["author"]["icon_url"] = self.author_icon
-            if self.author_url:
-                embed["author"]["url"] = self.author_url
-            if self.color:
-                embed["color"] = self.color
-            if self.desc:
-                embed["description"] = self.desc
-            if self.title:
-                embed["title"] = self.title
-            if self.title_url:
-                embed["url"] = self.title_url
-            if self.image:
-                embed["image"]['url'] = self.image
-            if self.thumbnail:
-                embed["thumbnail"]['url'] = self.thumbnail
-            if self.footer:
-                embed["footer"]['text'] = self.footer
-            if self.footer_icon:
-                embed['footer']['icon_url'] = self.footer_icon
-            if self.ts:
-                embed["timestamp"] = self.ts
-
-            if self.fields:
-                embed["fields"] = []
-                for field in self.fields:
-                    f = {}
-                    f["name"] = field['name']
-                    f["value"] = field['value']
-                    f["inline"] = field['inline']
-                    embed["fields"].append(f)
-
-            data["embeds"].append(dict(embed))
-
-        return json.dumps(data, indent=4)
+        return json.dumps(self.payload, indent=4)
 
     def post(self):
         """
@@ -174,8 +71,308 @@ class Payload:
 
         headers = {'Content-Type': 'application/json'}
 
-        result = requests.post(self.__webhook, data=self.json, headers=headers)
+        if TEST_MODE:
+            print(self.json)
+            return
+
+        result = requests.post(self.__config.webhook, data=self.json, headers=headers)
 
         if result.status_code >= 400:
             print(self.json)
             print("Post Failed, Error {}".format(result.status_code), file=sys.stderr)
+
+
+class Message(Payload):
+
+    def __init__(self, config, data):
+        super().__init__(config, data)
+
+    def emit_timeout(self):
+        self.payload["content"] = '{emoticon} Your `{command}` command on `{hostname}` started by `{username}` just timed out after {runtime}.'.format(
+            emoticon=':clock4:',
+            command=self.data.command,
+            hostname=self.data.hostname,
+            username=self.data.username,
+            runtime=self.data.runtime
+        )
+        self.post()
+
+    def emit_signal(self):
+        self.payload["content"] = '{emoticon} Forced update on your `{command}` command on `{hostname}` started by `{username}` is running for {runtime}.'.format(
+            emoticon=':pushpin:',
+            command=self.data.command,
+            hostname=self.data.hostname,
+            username=self.data.username,
+            runtime=self.data.runtime
+        )
+        self.post()
+
+    def emit_period(self):
+        self.payload["content"] = '{emoticon} Periodic update on your `{command}` command on `{hostname}` started by `{username}` is running for {runtime}.'.format(
+            emoticon=':arrows_counterclockwise:',
+            command=self.data.command,
+            hostname=self.data.hostname,
+            username=self.data.username,
+            runtime=self.data.runtime
+        )
+        self.post()
+
+    def emit_interrupt(self):
+        self.payload["content"] = '{emoticon} Your `{command}` command on `{hostname}` started by `{username}` was just cancelled after {runtime}.'.format(
+            emoticon=':octagonal_sign:',
+            command=self.data.command,
+            hostname=self.data.hostname,
+            username=self.data.username,
+            runtime=self.data.runtime
+        )
+        self.post()
+
+    def emit_final(self):
+        self.payload["content"] = '{emoticon} Your `{command}` command on `{hostname}` started by `{username}` just finished after {runtime}.'.format(
+            emoticon=':white_check_mark:' if self.data.success else ':x:',
+            command=self.data.command,
+            hostname=self.data.hostname,
+            username=self.data.username,
+            runtime=self.data.runtime
+        )
+        self.post()
+
+
+class Embed(Payload):
+
+    def __init__(self, config, data):
+        super().__init__(config, data)
+
+    def __prepare_defaults(self):
+        embed = defaultdict(dict)
+
+        embed["color"] = self.config.color
+
+        embed["author"]["name"] = self.config.user_name
+        embed["author"]["icon_url"] = self.config.user_icon
+        embed["author"]["url"] = self.config.user_url
+
+        if (self.config.title_url):
+            embed["url"] = self.config.title_url
+
+        if self.config.image:
+            embed["image"]['url'] = self.config.image
+
+        if self.config.footer:
+            embed["footer"]['text'] = self.config.footer
+        if self.config.footer_icon:
+            embed['footer']['icon_url'] = self.config.footer_icon
+
+        embed["timestamp"] = self.data.timestamp
+
+        return embed
+
+    def emit_period(self):
+        embed = self.__prepare_defaults()
+
+        # set the icon
+        embed["thumbnail"]['url'] = self.config.icon_period
+
+        embed["title"] = 'Periodic update on `[{pid}] {command}`'.format(pid=self.data.pid, command=self.data.command)
+
+        # >>> description
+        desc = ''
+        if len(self.data.stdin_buffer) > 0:
+            desc += '**STDIN buffer:**\n```\n' + self.data.stdin_buffer + '\n```'
+        if len(self.data.stdout_buffer) > 0:
+            desc += '\n**STDOUT buffer:**\n```\n' + self.data.stdout_buffer + '\n```'
+        if len(self.data.stderr_buffer) > 0:
+            desc += '\n**STDERR buffer:**\n```\n' + self.data.stderr_buffer + '\n```'
+        embed["description"] = desc
+        # <<< description
+
+        embed["fields"] = []
+
+        def append(name, value):
+            embed["fields"].append({"name": name, "value": value, "inline": True})
+
+        append('Run time', self.data.runtime)
+        append('Start time', self.data.start_time)
+
+        append('STDIN',  '{} lines'.format(self.data.stdin_lines))
+        append('STDOUT', '{} lines'.format(self.data.stdout_lines))
+        append('STDERR', '{} lines'.format(self.data.stderr_lines))
+
+        self.payload["embeds"] = []
+        self.payload["embeds"].append(dict(embed))
+
+        self.post()
+
+    def emit_signal(self):
+        embed = self.__prepare_defaults()
+
+        # set the icon
+        embed["thumbnail"]['url'] = self.config.icon_warning
+
+        embed["title"] = 'Forced update on `[' + self.data.pid + '] ' + self.data.command + '`'
+
+        # >>> description
+        desc = ''
+        if len(self.data.stdin_buffer) > 0:
+            desc += '**STDIN buffer:**\n```\n' + self.data.stdin_buffer + '\n```'
+        if len(self.data.stdout_buffer) > 0:
+            desc += '\n**STDOUT buffer:**\n```\n' + self.data.stdout_buffer + '\n```'
+        if len(self.data.stderr_buffer) > 0:
+            desc += '\n**STDERR buffer:**\n```\n' + self.data.stderr_buffer + '\n```'
+        embed["description"] = desc
+        # <<< description
+
+        embed["fields"] = []
+
+        def append(name, value):
+            embed["fields"].append({"name": name, "value": value, "inline": True})
+
+        append('Run time', self.data.runtime)
+        append('Start time', self.data.start_time)
+
+        append('STDIN',  '{} lines'.format(self.data.stdin_lines))
+        append('STDOUT', '{} lines'.format(self.data.stdout_lines))
+        append('STDERR', '{} lines'.format(self.data.stderr_lines))
+
+        self.payload["embeds"] = []
+        self.payload["embeds"].append(dict(embed))
+
+        self.post()
+
+    def emit_final(self):
+        embed = self.__prepare_defaults()
+
+        # set the icon
+        embed["thumbnail"]['url'] = self.config.icon_success if self.data.success else self.config.icon_failure
+
+        embed["title"] = '**CMD:** `' + self.data.command + '`'
+
+        # >>> description
+        desc = ''
+
+        if self.data.mode != Mode.SINK:
+            desc += '**Arguments:**\n```\n'
+            for arg in self.data.arguments:
+                desc += '[' + arg + ']\n'
+            desc += '```\n'
+
+        if len(self.data.stdin_buffer) > 0:
+            desc += '**STDIN buffer:**\n```\n' + self.data.stdin_buffer + '\n```'
+        if len(self.data.stdout_buffer) > 0:
+            desc += '\n**STDOUT buffer:**\n```\n' + self.data.stdout_buffer + '\n```'
+        if len(self.data.stderr_buffer) > 0:
+            desc += '\n**STDERR buffer:**\n```\n' + self.data.stderr_buffer + '\n```'
+        embed["description"] = desc
+        # <<< description
+
+        embed["fields"] = []
+
+        def append(name, value):
+            embed["fields"].append({"name": name, "value": value, "inline": True})
+
+        append('Return Code', self.data.returncode)
+
+        append('Run time', self.data.runtime)
+        append('Start time', self.data.start_time)
+        append('End time', self.data.end_time)
+
+        append('STDIN',  '{} lines'.format(self.data.stdin_lines))
+        append('STDOUT', '{} lines'.format(self.data.stdout_lines))
+        append('STDERR', '{} lines'.format(self.data.stderr_lines))
+
+        self.payload["embeds"] = []
+        self.payload["embeds"].append(dict(embed))
+
+        self.post()
+
+    def emit_interrupt(self):
+        embed = self.__prepare_defaults()
+
+        # set the icon
+        embed["thumbnail"]['url'] = self.config.icon_timeout
+
+        embed["title"] = '**Interrupted CMD:** `' + self.data.command + '`'
+
+        # >>> description
+        desc = ''
+
+        if self.data.mode != Mode.SINK:
+            desc += '**Arguments:**\n```\n'
+            for arg in self.data.arguments:
+                desc += '[' + arg + ']\n'
+            desc += '```\n'
+
+        if len(self.data.stdin_buffer) > 0:
+            desc += '**STDIN buffer:**\n```\n' + self.data.stdin_buffer + '\n```'
+        if len(self.data.stdout_buffer) > 0:
+            desc += '\n**STDOUT buffer:**\n```\n' + self.data.stdout_buffer + '\n```'
+        if len(self.data.stderr_buffer) > 0:
+            desc += '\n**STDERR buffer:**\n```\n' + self.data.stderr_buffer + '\n```'
+        embed["description"] = desc
+        # <<< description
+
+        embed["fields"] = []
+
+        def append(name, value):
+            embed["fields"].append({"name": name, "value": value, "inline": True})
+
+        append('Return Code', self.data.returncode)
+
+        append('Run time', self.data.runtime)
+        append('Start time', self.data.start_time)
+        append('End time', self.data.end_time)
+
+        append('STDIN',  '{} lines'.format(self.data.stdin_lines))
+        append('STDOUT', '{} lines'.format(self.data.stdout_lines))
+        append('STDERR', '{} lines'.format(self.data.stderr_lines))
+
+        self.payload["embeds"] = []
+        self.payload["embeds"].append(dict(embed))
+
+        self.post()
+
+    def emit_timeout(self):
+        embed = self.__prepare_defaults()
+
+        # set the icon
+        embed["thumbnail"]['url'] = self.config.icon_timeout
+
+        embed["title"] = '**Timed out CMD:** `' + self.data.command + '`'
+
+        # >>> description
+        desc = ''
+
+        if self.data.mode != Mode.SINK:
+            desc += '**Arguments:**\n```\n'
+            for arg in self.data.arguments:
+                desc += '[' + arg + ']\n'
+            desc += '```\n'
+
+        if len(self.data.stdin_buffer) > 0:
+            desc += '**STDIN buffer:**\n```\n' + self.data.stdin_buffer + '\n```'
+        if len(self.data.stdout_buffer) > 0:
+            desc += '\n**STDOUT buffer:**\n```\n' + self.data.stdout_buffer + '\n```'
+        if len(self.data.stderr_buffer) > 0:
+            desc += '\n**STDERR buffer:**\n```\n' + self.data.stderr_buffer + '\n```'
+        embed["description"] = desc
+        # <<< description
+
+        embed["fields"] = []
+
+        def append(name, value):
+            embed["fields"].append({"name": name, "value": value, "inline": True})
+
+        append('Return Code', self.data.returncode)
+
+        append('Run time', self.data.runtime)
+        append('Start time', self.data.start_time)
+        append('End time', self.data.end_time)
+
+        append('STDIN',  '{} lines'.format(self.data.stdin_lines))
+        append('STDOUT', '{} lines'.format(self.data.stdout_lines))
+        append('STDERR', '{} lines'.format(self.data.stderr_lines))
+
+        self.payload["embeds"] = []
+        self.payload["embeds"].append(dict(embed))
+
+        self.post()
