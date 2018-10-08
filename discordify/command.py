@@ -25,7 +25,7 @@ class Command:
         self.__stdout_thread = None
         self.__stderr_thread = None
         self.__start_time = 0
-        self.__end_time = 0
+        self.__end_time = None
         self.__terminate = False
         self.__stdin_buffer = deque(maxlen=config.buffer_size)
         self.__stdout_buffer = deque(maxlen=config.buffer_size)
@@ -145,7 +145,7 @@ class Command:
         return Data(arguments=self.__args,
                     pid=self.__process.pid if self.__args else getpgid(0),
                     start_time=self.__start_time,
-                    end_time=self.__end_time,
+                    end_time=self.__end_time if self.__end_time else time.time(),
                     mode=self.__mode,
                     returncode=self.__process.returncode if self.__args else 0,
                     stdin_lines=self.__stdin_lines,
