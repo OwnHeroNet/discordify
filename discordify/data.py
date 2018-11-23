@@ -60,7 +60,7 @@ class Data:
 
     @property
     def returncode(self):
-        return self.__returncode
+        return self.__returncode if self.__returncode is not None else '<unavailable>'
 
     @property
     def runtime(self):
